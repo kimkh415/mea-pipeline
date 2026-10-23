@@ -47,6 +47,8 @@ echo; echo "=== 1. the sorter output is shaped as expected ==="
 mea plan --input "$SORTED" || rc=$?
 if [[ $rc -eq 0 ]]; then
     echo; echo "=== 2. QC, metrics, figures ==="
+    # Start clean: an earlier run's files would otherwise be archived as this run's
+    [[ -n "$STEM" && "$RESULTS" == *"/$STEM" ]] && rm -rf "$RESULTS"
     mea run --input "$SORTED" --out "$RESULTS" || rc=$?
 fi
 
