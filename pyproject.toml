@@ -1,6 +1,6 @@
 [project]
 name = "mea-pipeline"
-version = "1.0.1"
+version = "1.1.0"
 description = "MEA spike-train analysis pipeline (Python port of the Yang MATLAB pipeline)"
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24","scipy>=1.10","pandas>=2.0","pyarrow>=12","pyyaml>=6","h5py>=3.8",
