@@ -1,0 +1,2 @@
+[console_scripts]
+mea = mea.cli:main

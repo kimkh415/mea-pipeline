@@ -1,0 +1,88 @@
+"""Snakemake workflow: recordings in parallel, stages chained from each one's entry point.
+
+Rules write sentinel files, not the shared `<rec>.mea/` store.
+
+    snakemake -s workflow/Snakefile -j 8 \
+        --config "input=['DATA_A','DATA_B']" out=RESULTS
+"""
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, os.path.join(workflow.basedir, "..", "src"))
+
+from mea import config as cfgmod
+from mea.discovery import scan
+from mea.pipeline import BY_KEY, ORDER, import_entry, import_source
+
+CFG   = cfgmod.load(config.get("config"), config.get("set", []))
+_inp  = config.get("input", "data")
+INPUT = _inp if isinstance(_inp, list) else [_inp]
+OUT   = config.get("out", "results")
+FOUND = scan(INPUT, CFG)
+
+IMPORTABLE = {n: import_source(r)[1] for n, r in FOUND.items() if import_source(r)[1]}
+SKIPPED    = sorted(set(FOUND) - set(IMPORTABLE))
+
+
+def to_run(rec_name):
+    """Implemented stages after the point the MATLAB already reached."""
+    rec = FOUND[rec_name]
+    i = ORDER.index(rec.furthest) if rec.furthest else -1
+    return [k for k in ORDER[i + 1:] if BY_KEY[k].implemented]
+
+
+def sentinel(rec_name, stage):
+    return f"{OUT}/{rec_name}.mea/.{stage}.done"
+
+
+def target(rec_name):
+    """What `all` should ask for: the last stage that will run, else the import."""
+    stages = to_run(rec_name)
+    return sentinel(rec_name, stages[-1]) if stages else sentinel(rec_name, "import")
+
+
+def upstream(wildcards):
+    """Previous *running* stage's sentinel, or the imported store."""
+    stages = to_run(wildcards.rec)
+    i = stages.index(wildcards.stage)
+    return sentinel(wildcards.rec, stages[i - 1] if i else "import")
+
+
+onstart:
+    for n in SKIPPED:
+        print(f"[mea] skipping {n}: no state-bearing .mat to enter from", file=sys.stderr)
+
+
+rule all:
+    input: [target(n) for n in IMPORTABLE]
+
+
+rule import_legacy:
+    """Load the furthest state-bearing MATLAB output into the .mea store.
+
+    Outputs a sentinel: stages rewrite the store's files in place.
+    """
+    output: touch(f"{OUT}/{{rec}}.mea/.import.done")
+    threads: 1
+    run:
+        r = import_entry(IMPORTABLE[wildcards.rec])
+        r.name = wildcards.rec          # the discovery name, not the .mat's
+        r.save(OUT)
+
+
+rule stage:
+    """Run one pipeline stage in place on the store; only quantify is multithreaded."""
+    input:  upstream
+    output: touch(f"{OUT}/{{rec}}.mea/.{{stage}}.done")
+    threads: lambda wildcards: config.get("threads_quantify", 4) if wildcards.stage == "quantify" else 1
+    wildcard_constraints:
+        stage = "|".join(k for k in ORDER if BY_KEY[k].implemented),
+        rec   = r"[^/]+",
+    run:
+        from mea.io.recording import Recording
+        rec = Recording.load(Path(f"{OUT}/{wildcards.rec}.mea"))
+        res = BY_KEY[wildcards.stage].run(rec, CFG, rec.context())
+        if isinstance(res, dict):
+            rec.persist(wildcards.stage, res)
+        rec.save(OUT)

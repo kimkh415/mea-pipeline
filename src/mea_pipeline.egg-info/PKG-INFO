@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: mea-pipeline
+Version: 1.0.0
+Summary: MEA spike-train analysis pipeline (Python port of the Yang MATLAB pipeline)
+Requires-Python: >=3.10
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: pandas>=2.0
+Requires-Dist: pyarrow>=12
+Requires-Dist: pyyaml>=6
+Requires-Dist: h5py>=3.8
+Requires-Dist: matplotlib>=3.7

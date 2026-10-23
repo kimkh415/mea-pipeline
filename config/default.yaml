@@ -1,0 +1,185 @@
+# Pipeline defaults. Every analysis setting lives here.
+
+# --- dataset: project-specific description ---
+dataset:
+
+  # --- how recordings and conditions are found on disk ---
+  discovery:
+    group_by: basename          # basename (files sharing a stem; several per folder) | directory (one per folder)
+    # Wrong order relabels the drugs silently; check with `mea conditions --input DIR`
+    condition_order: file_time  # file_time (in-file timestamp) | mtime (copies change it) | name | explicit
+    # explicit only: 1-based positions in the alphabetical listing ([4, 6, 1, 5, 2, 3])
+    # or case-insensitive filename substrings ([Baseline, Gabazine, ...]); must cover every file
+    order: null
+
+  # --- experimental design ---
+  conditions:
+    labels: [Baseline, Gabazine, CGP, DNQX, D-AP5, TTX]  # condition names; [] keeps filename labels
+    match_ratio: 0.60           # fuzzy filename-to-label match threshold, 0-1
+    roles:
+      silencing: TTX            # silencing-control label; QC's TTX test is skipped (with a warning) if absent
+      baseline: Baseline        # baseline condition label
+
+# --- diagnostic figures (mea/plots.py) ---
+plots:
+  enabled:              true
+  format:               pdf     # any extension matplotlib can write
+  dpi:                  150
+  # raster | activity_per_condition | electrode_scatter | unit_QC | metrics | electrode_map
+  # | overview | isi | ttx | waveforms | selection_drops (skipped if maxWvBaselineFraction >= 1)
+  figures:              [raster, activity_per_condition, electrode_scatter, unit_QC, metrics,
+                         electrode_map, overview, isi, ttx, waveforms,
+                         selection_drops]
+
+# --- organoid-level QC on the raw .brw, before sorting (mea/rawqc.py) ---
+raw_qc:
+  min_ttx_sensitive:      30    # chip passes if TTX silences more than this many electrodes
+  active_floor_multiple:  2.0   # electrode "active" = occupancy above N x the file's noise floor
+  drop_fraction:          0.5   # electrode "TTX-sensitive" = TTX occupancy below this fraction of baseline
+
+experiment:
+  window_s: 450          # s; analysed at the end of each condition
+  seed: 20260820         # RNG seed for stages 3 and 6
+  min_bursts_per_neuron: 5   # bursts a unit needs to count as bursting
+
+# --- stage 2: general QC ---
+qc_general:
+  # Tests that discard a unit: echo | silent | noisy | ttx | picture (picture is a no-op).
+  # Keep `silent`: the TTX rule has no activity floor of its own.
+  tests: [echo, silent, ttx]
+  refractory_ms:        1.0     # ms; closer spike pairs are merged (echo test)
+  refractory_max_pct:   5.0     # %; echo if more spikes than this are merged...
+  refractory_min_spikes: 3      # ...and more than this many pairs merged
+  min_rate_hz:          0.03    # Hz; silent if no condition exceeds this
+  # Unit kept if TTX removes at least this fraction of its peak rate over all conditions;
+  # 0-1, values below 0.90 warn. MATLAB TTX_EFFECT = 1 - ttx_min_drop.
+  ttx_min_drop:         0.90
+  cv_threshold:         3.5     # noisy test: ISI CV below this counts as uniform
+  lvr_threshold:        1.00    # noisy test: Lv below this counts as uniform
+  percentile:           98      # noisy test: spike-count outlier percentile among uniform units
+  percentile_top:       99.5    # noisy test: spike-count outlier percentile among all non-silent units
+  isi_ratio:            8       # noisy test: burst ISI x this < non-burst ISI
+  n_spikes_burst:       0.90    # noisy test: fraction of spikes in bursts for "mostly bursting"
+  noisy_index_mode:     cluster_index   # cluster_index | legacy_find_positions (MATLAB indexing: pools positions)
+
+# --- Maximal-Interval burst detection ---
+burst_detection:
+  min_spikes:           3       # spikes per burst, minimum
+  isi_start_ms:         200     # ms; ISI below this seeds a burst
+  isi_peak_ms:          150     # ms; burst needs at least one ISI below this
+  isi_end_ini_ms:       300     # ms; initial ISI that ends a burst
+  isi_end_max_ms:       500     # ms; cap on the growing end ISI
+  factor_maturation:    1.05    # end-ISI growth factor per added spike
+  min_ibi_ms:           500     # ms; closer bursts are merged
+  min_duration_ms:      25      # ms; shorter bursts are dropped
+  ratio_peak:           0.5     # fraction of burst spikes in the peak window
+
+# --- stage 3: crosstalk (hypersynchrony) QC ---
+qc_crosstalk:
+  n_surrogates:         500     # shuffles per pair
+  jitter_ticks:         3       # coincidence window, in samples...
+  jitter_max_ms:        1.0     # ...capped at this many ms
+  min_spikes:           5       # min spikes in a class for a pair to be flagged
+  pct_burst:            8       # %; coincident burst spikes to flag
+  pct_nonburst:         8       # %; coincident non-burst spikes to flag
+  pct_total:            8       # %; coincident spikes overall to flag
+  screen_burst:         4       # %; screen cut, burst spikes
+  screen_nonburst:      4       # %; screen cut, non-burst spikes
+  screen_total:         4       # %; screen cut, all spikes
+  factor_minority:      2       # pct multiplier for the minority spike class
+  percentile_burst:     95      # surrogate percentile to exceed, burst spikes
+  percentile_nonburst:  95      # surrogate percentile to exceed, non-burst spikes
+  percentile_total:     95      # surrogate percentile to exceed, all spikes
+  run_statistics:       true    # false stops after the deterministic screen
+
+# --- stage 4: activity QC ---
+qc_manual:
+  # Hz (1/median ISI, or n/T if compat.firing_rate=counting); dropped only if below in every non-TTX condition
+  min_activity_hz:      0.04
+
+# --- spike features ---
+spike_features:
+  entropy_bin_ms:       30      # ms; bin for spike-train entropy
+  sttc_dt_ms:           100     # ms; primary STTC window, reported as population.sttc
+  sttc_dt_report_ms:    [15, 100]   # ms; each also reported as population.sttc_dt<N>
+  fano_window_ms:       100     # ms; counting window for Fano factor
+  # operational-time Fano: window = N mean ISIs; units with fewer windows than min are NaN
+  fano_operational_isi:         5
+  fano_operational_min_windows: 10
+
+# --- network burst detection ---
+network_burst:
+  enabled:              true
+  detector:             fraction_active   # fraction_active | yang (MATLAB PopulationActivityDetection; keys below frac_*)
+  frac_min:             0.20    # fraction of units active together to start an event
+  frac_window_s:        0.10    # s; window a unit must fire in to count as active
+  frac_step_s:          0.01    # s; window step
+  frac_merge_s:         1.0     # s; events closer than this merge
+  frac_background_max:  0.10    # flag a condition whose median active fraction exceeds this
+  # yang detector (MATLAB constant in comment)
+  remove_echo:          true    # opt_distance
+  bin_min_s:            0.01    # BIN_MIN
+  bin_max_s:            3.0     # BIN_MAX
+  bin_default_s:        0.20    # BIN_DEFAULT
+  threshold_sd:         5.0     # THRESHOLD
+  smooth_bins:          [3,5,7] # SMOOTH_FACTOR
+  edge_level:           0.20    # START_LEVEL / END_LEVEL
+  outlier_top_pct:      99.5    # OUTLIER_TOP
+  mountain_pct:         95.0    # PERCENTILE_TOP
+  # threshold eased when > mountain_factor % of bins sit in runs >= mountain_chain above mountain_pct
+  mountain_chain:       3       # CHAIN
+  mountain_factor:      2.0     # FACTOR_MOUNTAIN (trigger)
+  mountain_scale:       null    # FACTOR_MOUNTAIN2 (exponent); null = mountain_factor
+  bin_reduct:           0.30    # BIN_REDUCT
+  min_threshold:        3.0     # MIN_THRESHOLD
+  min_rate_hz:          0.05    # ACTIVITY_THRESHOLD
+  min_channels:         6       # MIN_CHAN
+  min_channels_burst:   5       # MIN_CHAN_BURST
+  min_channel_ratio:    0.075   # MIN_CHAN_RATIO
+  min_channel_burst_ratio: 0.05 # MIN_CHAN_BURST_RATIO
+  threshold_with_units: 0.50    # THRESHOLD_BURST_WITH_UNITS
+  ladder_scaling:       2.0     # SCALING
+  ladder_scaling_adj:   0.75    # SCALING_ADJ
+  ladder_shortlist:     3       # N_SHORTLIST
+  ladder_change_thresh: 0.40    # CHANGE_THRESHOLD
+  secondary_bin_min_s:  0.010   # Optimal_secondaryPeak BIN_MIN
+  secondary_window_frac: 0.25   # WINDOW_FRACTION
+  secondary_broad:      1.80    # THRESHOLD_BROAD
+  secondary_min_windows: 0.40   # THRESHOLD_WINDOWS
+  n_surrogates:         500     # shuffles for the unit participation test
+  safe_k:               0.40    # widen each event window by this fraction of its width
+  participation_thresh: 3.0     # screen: in-event rate must exceed this x overall rate
+  participation_final:  1.90    # after the surrogate test: in-event rate > this x overall rate
+  echo_min_bursts:      8       # evaluatePrimaryBursts N_BURST_MIN
+  echo_min_distance:    4.0     # MIN_DISTANCE
+  bimodality_bc:        0.555   # test_bimodality THRESHOLD_BC
+
+# --- burst-family clustering ---
+clustering:
+  enabled:              true    # false skips families (detection unaffected)
+  w_scalar:             0.35    # weight of scalar-metric distance
+  w_population:         0.65    # weight of population (Jaccard) distance
+  max_k:                4       # max families
+  linkage:              ward    # scipy linkage method
+  n_bootstrap:          1000    # bootstrap resamples
+  n_permutation:        1000    # permutations for p-values
+  silhouette_threshold: 0.30    # min silhouette to accept clustering
+  alpha:                0.05    # significance level
+
+# --- stage 5: unit selection ---
+integrate:
+  # unit-type column to select on; unset = first of unitType_bombcell, unit_label, unit_type
+  label_column:
+  union_with_kilosort_good: true   # also keep KSLabel "good" clusters; no-op without ks_label
+  # bombcell unitType: 0 noise | 1 good somatic | 2 MUA somatic | 3 good non-somatic | 4 MUA non-somatic
+  unit_select_kilosort: [1, 2, 3, 4]
+  unit_select_3brain:   [1]          # legacy 3Brain reviewer class: -1 noise | 1 good | 2 weak
+
+# --- MATLAB compatibility switches (legacy_* reproduces MATLAB) ---
+compat:
+  firing_rate:      isi_span     # isi_span (ISI-based rates) | counting (n/duration)
+  population_rate:  arithmetic   # arithmetic | legacy_harmonic
+  cluster_metrics:  nan_aware    # nan_aware | legacy_drop_column (one NaN zeroes the column)
+  permutation_p:    plus_one     # plus_one ((1+hits)/(1+n)) | legacy_no_correction
+  jaccard_empty:    zero         # zero | legacy_one (distance for two empty sets)
+  scalar_scale:     robust       # robust (95th pct, clipped) | legacy_max
