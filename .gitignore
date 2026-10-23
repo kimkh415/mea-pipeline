@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.snakemake/
+.ipynb_checkpoints/
+
+# Pipeline output
+*.mea/
+results/
+
+# Data: recordings stay out of the repo
+*.mat
+*.bxr
+*.brw
+*.npy
+*_example_data/
+
+# OS
+.DS_Store
+.mea_repo
+.mea_env
