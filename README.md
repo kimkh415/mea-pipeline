@@ -112,6 +112,7 @@ exported in your shell; `mea.env` wins over the shell, and `--scratch DIR` /
 | Variable | Default | Controls |
 |---|---|---|
 | `MEA_REUSE_SORT` | – | `1`: keep the existing sort and only redo the steps after it (default: clear it and sort again) |
+| `MEA_MIN_BRW` | 2 | `.brw` files a recording needs to be submitted; `1` for single-condition runs |
 | `MEA_SORT_MEM` | 250G | Memory for the sort job |
 | `MEA_KEEP_DAT` | – | `1`: keep the sort's raw binary (100s of GB) |
 | `MEA_ARCHIVE_PURGE` | – | `1`: delete a sort from scratch once it is copied to `MEA_FINAL` |

@@ -46,8 +46,9 @@ echo "env       $(env_target)"
 
 # Check inputs before queueing
 [[ -d "$SESSION" ]] || { echo "no such directory: $SESSION" >&2; exit 1; }
-N=$(find "$SESSION" -maxdepth 1 -name "$STEM*.brw" | wc -l)
-[[ "$N" -ge 2 ]] || { echo "expected the baseline plus drug conditions for $STEM" >&2; exit 1; }
+N=$(find "$SESSION" -maxdepth 1 -name "$STEM*.brw" | wc -l | tr -d ' ')
+MIN_BRW="${MEA_MIN_BRW:-2}"     # 1 for single-condition runs
+[[ "$N" -ge "$MIN_BRW" ]] || { echo "expected at least $MIN_BRW .brw files for $STEM, found $N (MEA_MIN_BRW)" >&2; exit 1; }
 env_exists || {
     echo "no conda environment '$(env_target)' -- run 01_setup_env.sh first." >&2
     echo "It installs conda if the cluster has none, then builds the env." >&2

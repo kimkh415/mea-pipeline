@@ -79,6 +79,10 @@ echo "logs      $PROJECT/logs"
 [[ $DRY -eq 1 ]] && echo "MODE      dry run -- nothing will be submitted"
 echo
 
+# .brw files required per recording; 1 for single-condition runs
+MIN_BRW="${MEA_MIN_BRW:-2}"
+[[ "$MIN_BRW" =~ ^[1-9][0-9]*$ ]] || { echo "MEA_MIN_BRW must be a positive integer, got '$MIN_BRW'" >&2; exit 2; }
+
 ok=0; bad=0; n=0; seen=$'\n'
 while IFS= read -r line || [[ -n "$line" ]]; do
     line="${line%$'\r'}"                       # a list saved on Windows
@@ -107,8 +111,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     find "$directory" -maxdepth 1 -name "$prefix*.brw" | sort | while IFS= read -r f; do
         printf "           %6s  %s\n" "$(ls -lh "$f" | awk '{print $5}')" "$(basename "$f")"
     done
-    if [[ "$nbrw" -lt 2 ]]; then
-        echo "  ERROR: $nbrw .brw file(s) match $prefix*; need a baseline plus TTX at least"
+    if [[ "$nbrw" -lt "$MIN_BRW" ]]; then
+        echo "  ERROR: $nbrw .brw file(s) match $prefix*; need at least $MIN_BRW (MEA_MIN_BRW)"
         bad=$((bad+1)); echo; continue
     fi
     if [[ $DRY -eq 0 ]]; then
