@@ -177,7 +177,7 @@ integrate:
 
 # --- MATLAB compatibility switches (legacy_* reproduces MATLAB) ---
 compat:
-  firing_rate:      isi_span     # isi_span (ISI-based rates) | counting (n/duration)
+  firing_rate:      counting     # isi_span (ISI-based rates) | counting (n/duration)
   population_rate:  arithmetic   # arithmetic | legacy_harmonic
   cluster_metrics:  nan_aware    # nan_aware | legacy_drop_column (one NaN zeroes the column)
   permutation_p:    plus_one     # plus_one ((1+hits)/(1+n)) | legacy_no_correction
