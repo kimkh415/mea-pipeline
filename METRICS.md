@@ -10,7 +10,7 @@ units; values for pairs are averaged over all pairs.
 
 ## How much units fire
 
-- **`firingRate`, `firingRateISI`**: how fast a unit fires *while it is
+- **`firingRateISI`**: how fast a unit fires *while it is
   firing*: 1 / the average gap between its spikes. A unit that fires 2 spikes
   10 ms apart and then nothing scores 100 Hz, so a few such units can pull
   the average up.
