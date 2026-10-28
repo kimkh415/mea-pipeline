@@ -236,7 +236,7 @@ metric tells you, in plain words: [METRICS.md](METRICS.md).
 
 | Metric | Meaning |
 |---|---|
-| `firingRate` | Firing rate (Hz); = `firingRateISI` |
+| `firingRate` | Firing rate (Hz); = `firingRateCount` |
 | `firingRateISI` | 1 / mean interval between spikes (Hz): the rate while the unit is firing. Pulled up by units that fire only a few, close spikes |
 | `firingRateCount` | Spikes / window length (Hz): includes silent stretches |
 | `fanoFactor` | Variance / mean of spike counts in fixed 100 ms windows. 1 = Poisson; < 1 more regular; > 1 spikes clump (bursts). A fixed window makes it depend on rate: at ~1 Hz most bins hold 0 or 1 spike, which gives ≈ 1 for any unit. Prefer `fanoFactorOp` when comparing conditions |
