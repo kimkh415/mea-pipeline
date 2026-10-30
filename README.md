@@ -28,11 +28,11 @@ or with a baseline only, also run ([below](#without-ttx-or-baseline-only)).
 
 Once, on FAS RC.
 
-1. Save `mea-pipeline-v1.1.0.tar.gz` in the directory where you want the
+1. Save `mea-pipeline-v1.2.0.tar.gz` in the directory where you want the
    pipeline, and extract it:
 
    ```bash
-   tar zxf mea-pipeline-v1.1.0.tar.gz          # creates mea-pipeline/
+   tar zxf mea-pipeline-v1.2.0.tar.gz          # creates mea-pipeline/
    ```
 
 2. Get a GPU session:
@@ -320,7 +320,7 @@ To rerun QC and metrics, e.g. with other settings, from an archived sort
 `spike_times.npy`, `spike_clusters.npy`, `metadata.csv`, `recording_data.csv`:
 
 ```bash
-tar zxf mea-pipeline-v1.1.0.tar.gz
+tar zxf mea-pipeline-v1.2.0.tar.gz
 conda create -n MEA python=3.12 pip && conda activate MEA
 pip install -e mea-pipeline
 
