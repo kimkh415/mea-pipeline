@@ -1,7 +1,8 @@
 # mea-pipeline
 
 Spike sorting, unit QC and network metrics for 3Brain HD-MEA recordings of
-organoids under a drug series ending in TTX.
+organoids under a drug series, usually ending in TTX. Recordings without TTX,
+or with a baseline only, also run ([below](#without-ttx-or-baseline-only)).
 
 1. **Join:** an organoid's `.brw` files, one per condition (baseline, drugs,
    TTX), are put end to end in acquisition order into one full recording, so
@@ -11,14 +12,15 @@ organoids under a drug series ending in TTX.
    **[bombcell](https://github.com/Julie-Fabre/bombcell)** labels each cluster.
 3. **Unit QC:** drops units with > 5 % of spikes within 1 ms of each other,
    units below 0.03 Hz in every condition, units TTX does not silence (< 90 %
-   drop from peak rate), one of each pair firing in lockstep (crosstalk), and
-   units below 0.04 Hz in every non-TTX condition. Keeps bombcell types 1–4 or
-   Kilosort `good`.
+   drop from peak rate; only with a TTX file), duplicate units (of two units
+   whose spikes coincide within ~0.15 ms far more than chance, one is dropped),
+   and units below 0.04 Hz in every non-TTX condition. Keeps bombcell types 1–4
+   or Kilosort `good`.
 4. **Metrics:** per condition, on its last 450 s (the whole condition if
    shorter): firing, synchrony, single-unit bursting, network bursts
    ([Metrics](#metrics)).
-5. **Output:** per recording, 10 diagnostic PDFs and a metrics table; across
-   recordings, one table.
+5. **Output:** per recording, 10 diagnostic PDFs (9 without TTX) and a metrics
+   table; across recordings, one table.
 
 **Contents:** [Setup](#setup-on-the-hpc) · [Configure](#configure-a-project) · [Run](#run) · [Output](#output) · [Metrics](#metrics) · [Analysis only](#analysis-only-no-sorting) · [Common problems](#common-problems)
 
@@ -82,7 +84,7 @@ no drug:
 ```
 392_het_100Hz_00.brw                  baseline
 392_het_100Hz_gabazine_20uM_00.brw    gabazine
-392_het_100Hz_TTX_2uM_00.brw          TTX (required)
+392_het_100Hz_TTX_2uM_00.brw          TTX
 ```
 
 Drug names come from a list, `dataset.conditions.labels` in
@@ -123,6 +125,18 @@ exported in your shell; `mea.env` wins over the shell, and `--scratch DIR` /
 
 Analysis settings (QC thresholds, metric windows, drug names) are in
 [`config/default.yaml`](config/default.yaml), with a comment on each.
+
+### Without TTX, or baseline only
+
+**No TTX file:** nothing to set. The TTX test is skipped (no filename contains
+`ttx`) and there is no `ttx` figure. More units are kept, some of them noise; a
+glutamate blocker (D-AP5, DNQX) in the series is a rough check that kept units
+are neurons.
+
+**One `.brw` file:** add `MEA_MIN_BRW=1` to `mea.env` (submission otherwise
+needs 2 files), and give a prefix that matches only that file, e.g.
+`128_wt_100Hz_filter_00` for `128_wt_100Hz_filter_00.brw`. Its metrics table
+has one row.
 
 ## Run
 
@@ -203,7 +217,7 @@ recording,genotype,line,batch
 | File | Check |
 |---|---|
 | `unit_QC` | Units left after each QC step |
-| `ttx` | Every unit's peak vs TTX rate; kept units drop ≥ 90 % |
+| `ttx` | Every unit's peak vs TTX rate; kept units drop ≥ 90 %. Only with a TTX file |
 | `waveforms` | Mean waveforms by bombcell class and by QC verdict; kept units should be spike-shaped |
 | `isi` | Refractory violations vs firing rate |
 | `raster` | Kept units over the whole recording, conditions shaded |
@@ -336,7 +350,7 @@ recording passes with > 30 TTX-sensitive electrodes.
 |---|---|
 | `not set: MEA_SCRATCH MEA_FINAL` | Write `mea.env` in the project folder |
 | `ERROR: ... listed twice` | Remove the duplicate line; each prefix is one recording |
-| `need a baseline plus TTX` | Fewer than 2 `.brw` files match the prefix; check the folder and prefix |
+| `need at least 2 (MEA_MIN_BRW)` | Fewer `.brw` files match the prefix than required; check the folder and prefix, or set `MEA_MIN_BRW=1` for a baseline-only recording |
 | `these conditions match no label` | Rename the file, or add the spelling to `dataset.conditions.labels` |
 | `files carry no acquisition timestamp` | Set `dataset.discovery.condition_order: explicit` and `order` |
 | Sort job `OUT_OF_MEMORY` | `MEA_SORT_MEM=400G` in `mea.env`, resubmit |
